@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Examen de Conocimiento — Publicación Científica y Revisión por Pares</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        
+        #save-notification {
+            position: fixed; bottom: 20px; right: 20px;
+            background: #22c55e; color: white; padding: 10px 20px;
+            border-radius: 8px; font-size: 14px; font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 0; transform: translateY(20px);
+            transition: all 0.3s ease; z-index: 1000; pointer-events: none;
+        }
+        #save-notification.show { opacity: 1; transform: translateY(0); }
+        
+        .screen { display: none; }
+        .screen.active { display: block; }
+        
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.8s ease;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        
+        .match-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .match-row:last-child { border-bottom: none; }
+        .match-left { font-size: 14px; color: #374151; font-weight: 500; }
+        .match-right select {
+            width: 100%; padding: 8px 12px; border: 1px solid #d1d5db;
+            border-radius: 8px; font-size: 14px; background: white; cursor: pointer;
+        }
+        .match-right select:focus {
+            outline: none; border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
+        }
+
+        .start-bg {
+            background: linear-gradient(135deg, #eef2ff 0%, #faf5ff 40%, #fdf2f8 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        .start-bg::before {
+            content: '';
+            position: absolute;
+            top: -30%; right: -20%;
+            width: 60%; height: 80%;
+            background: radial-gradient(circle, rgba(139,92,246,0.10) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .start-bg::after {
+            content: '';
+            position: absolute;
+            bottom: -30%; left: -20%;
+            width: 60%; height: 80%;
+            background: radial-gradient(circle, rgba(99,102,241,0.10) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .start-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 20px 40px -12px rgba(79, 70, 229, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
+            position: relative;
+            z-index: 1;
+        }
+        .stat-card-light {
+            border-radius: 16px;
+            padding: 20px 12px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background: white;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+        .stat-card-light:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px -8px rgba(99,102,241,0.20);
+        }
+        .stat-blue-light { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); }
+        .stat-orange-light { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); }
+        .input-modern { transition: border-color 0.2s, box-shadow 0.2s; }
+        .input-modern:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99,102,241,0.12);
+            outline: none;
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            box-shadow: 0 8px 20px -6px rgba(99,102,241,0.5);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+        }
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -6px rgba(99,102,241,0.6);
+        }
+        .btn-start:disabled { background: #d1d5db; box-shadow: none; cursor: not-allowed; }
+        .icon-badge {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            box-shadow: 0 10px 30px -6px rgba(99,102,241,0.5);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .info-box {
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 13px;
+            line-height: 1.5;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .badge-modern {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            border: 1px solid rgba(148, 163, 184, 0.4);
+        }
+        .badge-indigo { background: rgba(99,102,241,0.12); color: #4338ca; }
+        .badge-emerald { background: rgba(16,185,129,0.12); color: #047857; }
+        
+        .question-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 24px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .option-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: white;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease;
+        }
+        .option-label:hover {
+            background: #eef2ff;
+            border-color: rgba(99, 102, 241, 0.5);
+        }
+        .section-header {
+            border-left: 4px solid;
+            border-top: 1px solid rgba(148, 163, 184, 0.3);
+            border-right: 1px solid rgba(148, 163, 184, 0.3);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        
+        /* PDF - Modelo anterior restaurado */
+        .pdf-report { background: white; padding: 40px; max-width: 800px; margin: 0 auto; color: #1f2937; }
+        @media print {
+            body * { visibility: hidden; }
+            #pdf-content, #pdf-content * { visibility: visible; }
+            #pdf-content { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+            .no-print { display: none !important; }
+            @page { margin: 1.2cm; size: A4; }
+        }
+        .report-header { text-align: center; border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 25px; }
+        .report-header h1 { font-size: 22px; color: #4f46e5; margin: 0 0 8px 0; font-weight: 700; }
+        .report-header h2 { font-size: 14px; color: #6b7280; margin: 0; font-weight: 400; }
+        .report-section { margin-bottom: 22px; }
+        .report-section-title { font-size: 13px; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; margin-bottom: 12px; }
+        .report-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; }
+        .report-info-item { padding: 8px 12px; background: #f9fafb; border-radius: 6px; }
+        .report-info-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+        .report-info-value { font-size: 13px; color: #1f2937; font-weight: 600; }
+        .report-score-box { text-align: center; padding: 20px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 10px; margin-bottom: 22px; }
+        .report-score-box .score-label { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.9; margin-bottom: 6px; }
+        .report-score-box .score-value { font-size: 42px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+        .report-score-box .score-subtitle { font-size: 13px; opacity: 0.95; }
+        .report-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
+        .report-table th { background: #4f46e5; color: white; padding: 6px 5px; text-align: left; font-weight: 600; font-size: 9px; text-transform: uppercase; }
+        .report-table td { padding: 6px 5px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+        .report-table tr:nth-child(even) { background: #f9fafb; }
+        .answer-correct { color: #059669; font-weight: 600; }
+        .answer-incorrect { color: #dc2626; font-weight: 600; }
+        .answer-empty { color: #9ca3af; font-style: italic; }
+        .report-honesty { margin-top: 18px; padding: 10px; background: #fef3c7; border-left: 4px solid #f59e0b; font-size: 10px; color: #78350f; line-height: 1.5; border-radius: 4px; }
+        .report-footer { margin-top: 25px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 9px; color: #9ca3af; text-align: center; line-height: 1.6; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <div id="save-notification">✓ Respuesta guardada</div>
+
+    <!-- ============================================================
+         PANTALLA 1: INICIO
+         ============================================================ -->
+    <div id="screen-start" class="screen active start-bg">
+        <div class="max-w-2xl mx-auto py-10 px-4 relative" style="z-index:1;">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-24 h-24 icon-badge rounded-3xl mb-5">
+                    <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                </div>
+                <h1 class="text-4xl font-extrabold text-gray-800 mb-2 tracking-tight">Examen de Conocimiento</h1>
+                <p class="text-lg text-gray-600 font-medium">Publicación Científica y Revisión por Pares</p>
+                <div class="flex justify-center gap-2 mt-4">
+                    <span class="badge-modern badge-indigo">📘 Académico</span>
+                    <span class="badge-modern badge-emerald">✓ Único intento</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-8">
+                <div class="stat-card-light stat-blue-light">
+                    <p class="text-3xl font-extrabold text-blue-600">15</p>
+                    <p class="text-xs text-blue-800/70 font-semibold mt-1 uppercase tracking-wide">Preguntas</p>
+                </div>
+                <div class="stat-card-light stat-orange-light">
+                    <p class="text-3xl font-extrabold text-orange-500">60</p>
+                    <p class="text-xs text-orange-800/70 font-semibold mt-1 uppercase tracking-wide">Minutos</p>
+                </div>
+            </div>
+
+            <div class="start-card rounded-3xl p-7 mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-5 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    Datos del estudiante
+                </h2>
+                <div class="space-y-5">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Nombre completo *</label>
+                        <input type="text" id="student-name" class="input-modern w-full border border-gray-300 rounded-xl px-4 py-3.5 text-sm focus:outline-none bg-white" placeholder="Ej: Ana Sofía Torres Vidal">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Correo institucional *</label>
+                        <input type="email" id="student-email" class="input-modern w-full border border-gray-300 rounded-xl px-4 py-3.5 text-sm focus:outline-none bg-white" placeholder="codigo@institucion.edu">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Fecha y hora de inicio</label>
+                        <input type="text" id="student-datetime" readonly class="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm bg-gray-50 text-gray-600">
+                    </div>
+                </div>
+            </div>
+
+            <div class="start-card rounded-3xl p-7 mb-6">
+                <h2 class="text-lg font-bold text-gray-800 mb-5 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    Declaración de Honestidad
+                </h2>
+                <div class="space-y-3 mb-5">
+                    <div class="info-box bg-blue-50 text-blue-900">
+                        <p class="font-bold text-blue-800 mb-1">📘 Examen de Conocimiento</p>
+                        <p>Evalúa tu dominio sobre publicación científica, revisión por pares, ética editorial y comunicación de resultados.</p>
+                    </div>
+                    <div class="info-box bg-amber-50 text-amber-900">
+                        <p class="font-bold text-amber-800 mb-1">🔒 Un solo intento por correo</p>
+                        <p>Este examen se puede rendir <strong>una única vez por correo institucional</strong>.</p>
+                    </div>
+                    <div class="info-box bg-red-50 text-red-900">
+                        <p class="font-bold text-red-800 mb-1">⚠️ No salgas de la pestaña</p>
+                        <p>Si sales de la pestaña o minimizas la ventana, el examen se <strong>cerrará automáticamente</strong> con la nota obtenida hasta ese momento.</p>
+                    </div>
+                    <div class="info-box bg-violet-50 text-violet-900">
+                        <p class="font-bold text-violet-800 mb-1">📄 La entrega debe ser en PDF</p>
+                        <p>Al terminar, descarga el reporte y súbelo a <strong>Moodle en formato PDF</strong>.</p>
+                    </div>
+                </div>
+                <label class="flex items-start gap-3 cursor-pointer p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-300">
+                    <input type="checkbox" id="honesty-check" class="mt-0.5 h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500">
+                    <span class="text-sm text-gray-700 leading-relaxed">
+                        Declaro que las respuestas son <strong>completamente propias</strong>, sin apoyo externo. Entiendo que este es mi <strong>único intento</strong>.
+                    </span>
+                </label>
+            </div>
+
+            <button id="start-btn" disabled class="btn-start w-full text-white font-bold py-4 px-6 rounded-2xl text-lg">
+                Completar todos los campos para continuar
+            </button>
+
+            <p class="text-center text-xs text-gray-500 mt-8 font-medium">
+                Examen de Conocimiento
+            </p>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         PANTALLA 2: EXAMEN ACTIVO
+         ============================================================ -->
+    <div id="screen-exam" class="screen">
+        <div class="max-w-3xl mx-auto py-8 px-4">
+
+            <div class="bg-white rounded-2xl shadow-md p-5 mb-6 sticky top-4 z-10 border border-gray-300">
+                <div class="flex justify-between items-center mb-3">
+                    <div>
+                        <h1 class="text-lg font-bold text-gray-800">Examen en curso</h1>
+                        <p class="text-xs text-gray-500">Publicación Científica</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-500 mb-1">Tiempo restante</p>
+                        <p class="text-2xl font-bold text-indigo-600" id="timer">60:00</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span class="text-gray-600">Guardado automático activo</span>
+                    <span class="text-gray-400 ml-auto">Salidas: <span id="exit-count" class="font-bold text-red-600">0</span> / 1</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2 mt-3">
+                    <div id="progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1 text-right"><span id="answered-count">0 / 26</span> ítems respondidos</p>
+            </div>
+
+            <div class="bg-red-50 border border-red-300 p-3 mb-4 rounded text-sm text-red-800">
+                <strong>⚠️ Atención:</strong> Si sales de la pestaña o minimizas la ventana, el examen se cerrará automáticamente con la nota obtenida hasta ese momento.
+            </div>
+
+            <form id="exam-form" class="space-y-4">
+
+                <div class="section-header bg-indigo-50 border-l-indigo-500">
+                    <h2 class="font-bold text-indigo-800">Parte A · Opción múltiple</h2>
+                    <p class="text-xs text-indigo-600">1 punto cada una · 12 preguntas</p>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">1. Al elegir la revista para publicar, ¿qué se debe considerar primero?</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q1" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) El factor de impacto únicamente</span></label>
+                        <label class="option-label"><input type="radio" name="q1" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Su alcance (scope) y el público objetivo</span></label>
+                        <label class="option-label"><input type="radio" name="q1" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) La rapidez con la que publica</span></label>
+                        <label class="option-label"><input type="radio" name="q1" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) El costo del APC</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">2. ¿Qué NO se debe hacer al buscar opciones de revistas?</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q2" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Verificar indexación</span></label>
+                        <label class="option-label"><input type="radio" name="q2" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Consultar con colegas</span></label>
+                        <label class="option-label"><input type="radio" name="q2" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Revisar el alcance</span></label>
+                        <label class="option-label"><input type="radio" name="q2" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) Aceptar la primera invitación por correo que ofrece publicación rápida</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">3. Respecto a las revistas sospechosas, ¿cuál afirmación es correcta?</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q3" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Todas las que cobran APC son depredadoras</span></label>
+                        <label class="option-label"><input type="radio" name="q3" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Cobrar APC con transparencia no la convierte en depredadora</span></label>
+                        <label class="option-label"><input type="radio" name="q3" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Todas las de acceso abierto son depredadoras</span></label>
+                        <label class="option-label"><input type="radio" name="q3" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) No existen revistas depredadoras</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">4. ¿Cuál es una señal de alerta de una revista depredadora?</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q4" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Tener un comité editorial reconocido</span></label>
+                        <label class="option-label"><input type="radio" name="q4" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Se garantiza la publicación en pocos días o semanas</span></label>
+                        <label class="option-label"><input type="radio" name="q4" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Proceso de revisión por pares documentado</span></label>
+                        <label class="option-label"><input type="radio" name="q4" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) Indexación en bases reconocidas</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">5. En el primer filtro editorial, un manuscrito:</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q5" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Siempre pasa a revisión externa</span></label>
+                        <label class="option-label"><input type="radio" name="q5" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Puede ser rechazado antes de la revisión externa</span></label>
+                        <label class="option-label"><input type="radio" name="q5" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Nunca se rechaza sin revisión externa</span></label>
+                        <label class="option-label"><input type="radio" name="q5" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) Solo se acepta directamente</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">6. ¿Desde cuándo aplica la confidencialidad en la revisión por pares?</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q6" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Al publicarse el artículo</span></label>
+                        <label class="option-label"><input type="radio" name="q6" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Al terminar la revisión</span></label>
+                        <label class="option-label"><input type="radio" name="q6" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Desde que recibe la invitación a revisar</span></label>
+                        <label class="option-label"><input type="radio" name="q6" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) Solo durante la lectura del manuscrito</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">7. Si el revisor tiene conflicto de interés con el manuscrito, debe:</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q7" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Revisarlo igual</span></label>
+                        <label class="option-label"><input type="radio" name="q7" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Rechazarlo automáticamente</span></label>
+                        <label class="option-label"><input type="radio" name="q7" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Informar al editor y dejar que el editor decida</span></label>
+                        <label class="option-label"><input type="radio" name="q7" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) Ignorar el conflicto</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">8. Ante un manuscrito con datos incompletos, ¿qué debe evaluar primero el revisor?</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q8" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Si los datos faltantes son novedosos</span></label>
+                        <label class="option-label"><input type="radio" name="q8" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Si es esencial para publicar o solo fortalecería el trabajo</span></label>
+                        <label class="option-label"><input type="radio" name="q8" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Si el autor tiene prestigio</span></label>
+                        <label class="option-label"><input type="radio" name="q8" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) Si la revista acepta ese tipo de datos</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">9. Si el revisor sospecha manipulación de datos en imágenes, debe:</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q9" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Ignorarlo</span></label>
+                        <label class="option-label"><input type="radio" name="q9" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Contactar a los autores directamente</span></label>
+                        <label class="option-label"><input type="radio" name="q9" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Contactar al editor y solicitar nuevas imágenes de los autores</span></label>
+                        <label class="option-label"><input type="radio" name="q9" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) Publicarlo así</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">10. Si sospechas que un manuscrito fue enviado simultáneamente a dos revistas, debes:</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q10" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) No hacer nada</span></label>
+                        <label class="option-label"><input type="radio" name="q10" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Informar de inmediato a ambos editores</span></label>
+                        <label class="option-label"><input type="radio" name="q10" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Contactar al autor</span></label>
+                        <label class="option-label"><input type="radio" name="q10" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) Publicarlo</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">11. Al organizar los comentarios en una revisión, un problema de diseño se clasifica como:</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q11" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) Punto menor</span></label>
+                        <label class="option-label"><input type="radio" name="q11" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) Punto mayor, por ser una deficiencia importante del diseño</span></label>
+                        <label class="option-label"><input type="radio" name="q11" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Comentario confidencial</span></label>
+                        <label class="option-label"><input type="radio" name="q11" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) No se reporta</span></label>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-3">12. Sobre el uso de IA en la publicación, la responsabilidad recae en:</p>
+                    <div class="space-y-2">
+                        <label class="option-label"><input type="radio" name="q12" value="a" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">a) El editor</span></label>
+                        <label class="option-label"><input type="radio" name="q12" value="b" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">b) El revisor</span></label>
+                        <label class="option-label"><input type="radio" name="q12" value="c" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">c) Los autores del manuscrito</span></label>
+                        <label class="option-label"><input type="radio" name="q12" value="d" class="mr-3 h-4 w-4 text-indigo-600"><span class="text-sm">d) La revista</span></label>
+                    </div>
+                </div>
+
+                <div class="section-header bg-green-50 border-l-green-500 mt-6">
+                    <h2 class="font-bold text-green-800">Parte B · Emparejamiento</h2>
+                    <p class="text-xs text-green-600">1 punto cada una · 3 preguntas · Puntaje parcial por par correcto</p>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-1">13. Actores de la publicación</p>
+                    <p class="text-xs text-gray-500 mb-4">Relaciona cada rol con su función</p>
+                    <div class="space-y-3">
+                        <div class="match-row">
+                            <span class="match-left">Investiga y redacta el manuscrito</span>
+                            <div class="match-right"><select data-match="13-1"><option value="">-- Seleccionar --</option><option value="autor">Autor</option><option value="editor">Editor</option><option value="revisor">Revisor</option><option value="lector">Lector</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Garantiza la calidad y pertinencia de lo publicado</span>
+                            <div class="match-right"><select data-match="13-2"><option value="">-- Seleccionar --</option><option value="autor">Autor</option><option value="editor">Editor</option><option value="revisor">Revisor</option><option value="lector">Lector</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Representa a la comunidad en la revisión por pares</span>
+                            <div class="match-right"><select data-match="13-3"><option value="">-- Seleccionar --</option><option value="autor">Autor</option><option value="editor">Editor</option><option value="revisor">Revisor</option><option value="lector">Lector</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Es el público objetivo y continúa la discusión</span>
+                            <div class="match-right"><select data-match="13-4"><option value="">-- Seleccionar --</option><option value="autor">Autor</option><option value="editor">Editor</option><option value="revisor">Revisor</option><option value="lector">Lector</option></select></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-1">14. Sesgos potenciales</p>
+                    <p class="text-xs text-gray-500 mb-4">Relaciona cada situación con el tipo de sesgo</p>
+                    <div class="space-y-3">
+                        <div class="match-row">
+                            <span class="match-left">Se acepta con facilidad por venir de una universidad reconocida</span>
+                            <div class="match-right"><select data-match="14-1"><option value="">-- Seleccionar --</option><option value="prestigio">Sesgo de prestigio</option><option value="geografico">Sesgo geográfico</option><option value="modelo">Sesgo de modelo</option><option value="positivo">Sesgo positivo</option><option value="etnico">Sesgo étnico y de género</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">El país o la institución influye en la percepción de calidad</span>
+                            <div class="match-right"><select data-match="14-2"><option value="">-- Seleccionar --</option><option value="prestigio">Sesgo de prestigio</option><option value="geografico">Sesgo geográfico</option><option value="modelo">Sesgo de modelo</option><option value="positivo">Sesgo positivo</option><option value="etnico">Sesgo étnico y de género</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Se rechaza un enfoque solo porque no es el que usa el revisor</span>
+                            <div class="match-right"><select data-match="14-3"><option value="">-- Seleccionar --</option><option value="prestigio">Sesgo de prestigio</option><option value="geografico">Sesgo geográfico</option><option value="modelo">Sesgo de modelo</option><option value="positivo">Sesgo positivo</option><option value="etnico">Sesgo étnico y de género</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Se evalúa favorablemente sin suficiente rigor</span>
+                            <div class="match-right"><select data-match="14-4"><option value="">-- Seleccionar --</option><option value="prestigio">Sesgo de prestigio</option><option value="geografico">Sesgo geográfico</option><option value="modelo">Sesgo de modelo</option><option value="positivo">Sesgo positivo</option><option value="etnico">Sesgo étnico y de género</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">El género u origen del autor pesan en la evaluación</span>
+                            <div class="match-right"><select data-match="14-5"><option value="">-- Seleccionar --</option><option value="prestigio">Sesgo de prestigio</option><option value="geografico">Sesgo geográfico</option><option value="modelo">Sesgo de modelo</option><option value="positivo">Sesgo positivo</option><option value="etnico">Sesgo étnico y de género</option></select></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-card">
+                    <p class="font-semibold text-gray-800 mb-1">15. Estructura del informe de revisión</p>
+                    <p class="text-xs text-gray-500 mb-4">Relaciona cada sección con su contenido</p>
+                    <div class="space-y-3">
+                        <div class="match-row">
+                            <span class="match-left">Impresión general y contenido central</span>
+                            <div class="match-right"><select data-match="15-1"><option value="">-- Seleccionar --</option><option value="resumen">Resumen</option><option value="contexto">Contexto</option><option value="critica">Crítica / evaluación</option><option value="conclusion">Conclusión</option><option value="confidencial">Comentarios confidenciales al editor</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Problema o área del manuscrito</span>
+                            <div class="match-right"><select data-match="15-2"><option value="">-- Seleccionar --</option><option value="resumen">Resumen</option><option value="contexto">Contexto</option><option value="critica">Crítica / evaluación</option><option value="conclusion">Conclusión</option><option value="confidencial">Comentarios confidenciales al editor</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Fortalezas, debilidades y puntos numerados</span>
+                            <div class="match-right"><select data-match="15-3"><option value="">-- Seleccionar --</option><option value="resumen">Resumen</option><option value="contexto">Contexto</option><option value="critica">Crítica / evaluación</option><option value="conclusion">Conclusión</option><option value="confidencial">Comentarios confidenciales al editor</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Cierre que conecta con la recomendación</span>
+                            <div class="match-right"><select data-match="15-4"><option value="">-- Seleccionar --</option><option value="resumen">Resumen</option><option value="contexto">Contexto</option><option value="critica">Crítica / evaluación</option><option value="conclusion">Conclusión</option><option value="confidencial">Comentarios confidenciales al editor</option></select></div>
+                        </div>
+                        <div class="match-row">
+                            <span class="match-left">Posible mala conducta o conflictos de interés</span>
+                            <div class="match-right"><select data-match="15-5"><option value="">-- Seleccionar --</option><option value="resumen">Resumen</option><option value="contexto">Contexto</option><option value="critica">Crítica / evaluación</option><option value="conclusion">Conclusión</option><option value="confidencial">Comentarios confidenciales al editor</option></select></div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" id="submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition-colors border border-indigo-700">
+                    Entregar Examen
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         PANTALLA 3: EXAMEN CERRADO
+         ============================================================ -->
+    <div id="screen-annulled" class="screen">
+        <div class="max-w-2xl mx-auto py-8 px-4">
+            <div class="bg-red-50 border border-red-300 rounded-2xl p-5 mb-6">
+                <div class="flex items-start gap-3">
+                    <svg class="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <div>
+                        <h3 class="font-bold text-red-800 mb-1">Examen cerrado automáticamente</h3>
+                        <p class="text-sm text-red-700">Has salido de la ventana del examen. El examen se ha cerrado con la nota obtenida hasta el momento.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border border-gray-300">
+                <p class="text-center text-xs uppercase tracking-widest text-gray-500 mb-4">Resultado del Examen de Conocimiento</p>
+                <div class="relative flex justify-center mb-4">
+                    <svg width="160" height="160" class="transform -rotate-90">
+                        <circle cx="80" cy="80" r="70" stroke="#e5e7eb" stroke-width="12" fill="none"/>
+                        <circle id="annulled-ring" cx="80" cy="80" r="70" stroke="#dc2626" stroke-width="12" fill="none"
+                                stroke-dasharray="439.8" stroke-dashoffset="439.8" stroke-linecap="round"/>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <p class="text-5xl font-bold text-gray-800" id="annulled-score">0</p>
+                        <p class="text-sm text-gray-500 mt-1">/15</p>
+                    </div>
+                </div>
+                <p class="text-center text-2xl font-bold text-red-600 mb-1" id="annulled-level">REPROBADO</p>
+                <p class="text-center text-sm text-gray-600 mb-6" id="annulled-percentage">0%</p>
+
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-300">
+                        <p class="text-xs text-gray-500 mb-1">Estudiante</p>
+                        <p class="text-sm font-semibold text-gray-800 truncate" id="annulled-name">-</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-300">
+                        <p class="text-xs text-gray-500 mb-1">Nivel</p>
+                        <p class="text-sm font-semibold text-red-600" id="annulled-level-small">Reprobado</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border border-gray-300">
+                <h3 class="font-bold text-gray-800 mb-3">Resultado por sección</h3>
+                <div id="annulled-sections" class="space-y-3"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border border-gray-300">
+                <h3 class="font-bold text-gray-800 mb-2">Análisis de Resultados por Tema</h3>
+                <p class="text-sm text-gray-600 mb-3">Basado en tus respuestas, estas son las áreas con mayor y menor dominio:</p>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+                    <p class="font-semibold text-blue-800 mb-1">Retroalimentación completa disponible:</p>
+                    <p>Descarga el PDF para ver cada pregunta con tu respuesta, la respuesta correcta y la justificación detallada.</p>
+                </div>
+            </div>
+
+            <button id="annulled-download-pdf" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl mb-6 transition-colors border border-blue-700">
+                Descargar Retroalimentación Completa (PDF)
+            </button>
+
+            <div class="bg-green-50 border border-green-300 rounded-2xl p-5">
+                <div class="flex items-start gap-3">
+                    <svg class="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <div>
+                        <h3 class="font-bold text-green-800 mb-1">Evaluación entregada correctamente</h3>
+                        <p class="text-sm text-green-700 mb-2">Sube el PDF a Moodle antes del plazo establecido; sin ese PDF, la evaluación no se califica.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         PANTALLA 4: RESULTADO
+         ============================================================ -->
+    <div id="screen-result" class="screen">
+        <div class="max-w-2xl mx-auto py-8 px-4">
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border border-gray-300">
+                <p class="text-center text-xs uppercase tracking-widest text-gray-500 mb-4">Resultado del Examen de Conocimiento</p>
+                <div class="relative flex justify-center mb-4">
+                    <svg width="160" height="160" class="transform -rotate-90">
+                        <circle cx="80" cy="80" r="70" stroke="#e5e7eb" stroke-width="12" fill="none"/>
+                        <circle id="result-ring" class="progress-ring__circle" cx="80" cy="80" r="70" stroke="#16a34a" stroke-width="12" fill="none"
+                                stroke-dasharray="439.8" stroke-dashoffset="439.8" stroke-linecap="round"/>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <p class="text-5xl font-bold text-gray-800" id="result-score">0</p>
+                        <p class="text-sm text-gray-500 mt-1">/<span id="result-total">15</span></p>
+                    </div>
+                </div>
+                <p class="text-center text-2xl font-bold mb-1" id="result-level">APROBADO</p>
+                <p class="text-center text-sm text-gray-600 mb-6" id="result-percentage">0%</p>
+
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-300">
+                        <p class="text-xs text-gray-500 mb-1">Estudiante</p>
+                        <p class="text-sm font-semibold text-gray-800 truncate" id="result-name">-</p>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-3 text-center border border-gray-300">
+                        <p class="text-xs text-gray-500 mb-1">Nivel</p>
+                        <p class="text-sm font-semibold" id="result-level-small">Aprobado</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border border-gray-300">
+                <h3 class="font-bold text-gray-800 mb-3">Resultado por sección</h3>
+                <div id="result-sections" class="space-y-3"></div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border border-gray-300">
+                <h3 class="font-bold text-gray-800 mb-2">Análisis de Resultados por Tema</h3>
+                <p class="text-sm text-gray-600 mb-3">Basado en tus respuestas, estas son las áreas con mayor y menor dominio:</p>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+                    <p class="font-semibold text-blue-800 mb-1">Retroalimentación completa disponible:</p>
+                    <p>Descarga el PDF para ver cada pregunta con tu respuesta, la respuesta correcta y la justificación detallada.</p>
+                </div>
+            </div>
+
+            <button id="result-download-pdf" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl mb-6 transition-colors border border-blue-700">
+                Descargar Retroalimentación Completa (PDF)
+            </button>
+
+            <div class="bg-green-50 border border-green-300 rounded-2xl p-5">
+                <div class="flex items-start gap-3">
+                    <svg class="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <div>
+                        <h3 class="font-bold text-green-800 mb-1">Evaluación entregada correctamente</h3>
+                        <p class="text-sm text-green-700 mb-2">Sube el PDF a Moodle antes del plazo establecido; sin ese PDF, la evaluación no se califica.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         CONTENEDOR PDF
+         ============================================================ -->
+    <div id="pdf-content" style="display:none;">
+        <div class="pdf-report">
+            <div class="report-header">
+                <h1>REPORTE DE EXAMEN DE CONOCIMIENTO</h1>
+                <h2>Publicación Científica y Revisión por Pares - 2026</h2>
+            </div>
+
+            <div class="report-score-box" id="pdf-score-box">
+                <div class="score-label">Calificación Final</div>
+                <div class="score-value" id="pdf-score">0/15</div>
+                <div class="score-subtitle" id="pdf-percentage">0% de acierto</div>
+            </div>
+
+            <div class="report-section">
+                <div class="report-section-title">Datos del Estudiante</div>
+                <div class="report-info-grid">
+                    <div class="report-info-item"><div class="report-info-label">Nombre Completo</div><div class="report-info-value" id="pdf-student-name">-</div></div>
+                    <div class="report-info-item"><div class="report-info-label">Correo</div><div class="report-info-value" id="pdf-student-email">-</div></div>
+                    <div class="report-info-item"><div class="report-info-label">Fecha y Hora</div><div class="report-info-value" id="pdf-date">-</div></div>
+                    <div class="report-info-item"><div class="report-info-label">Duración</div><div class="report-info-value" id="pdf-duration">-</div></div>
+                    <div class="report-info-item"><div class="report-info-label">Estado</div><div class="report-info-value" id="pdf-status">-</div></div>
+                    <div class="report-info-item"><div class="report-info-label">Salidas Detectadas</div><div class="report-info-value" id="pdf-exits">0</div></div>
+                </div>
+            </div>
+
+            <div class="report-section">
+                <div class="report-section-title">Parte A · Opción Múltiple</div>
+                <table class="report-table">
+                    <thead><tr><th style="width:5%;">#</th><th style="width:35%;">Pregunta</th><th style="width:18%;">Tu Respuesta</th><th style="width:18%;">Correcta</th><th style="width:24%;">Justificación</th></tr></thead>
+                    <tbody id="pdf-partA-table"></tbody>
+                </table>
+            </div>
+
+            <div class="report-section">
+                <div class="report-section-title">Parte B · Emparejamiento</div>
+                <table class="report-table">
+                    <thead><tr><th style="width:5%;">#</th><th style="width:45%;">Enunciado</th><th style="width:25%;">Tu Respuesta</th><th style="width:25%;">Correcta</th></tr></thead>
+                    <tbody id="pdf-partB-table"></tbody>
+                </table>
+            </div>
+
+            <div class="report-honesty">
+                <strong>Declaración de Honestidad:</strong> El estudiante declara haber realizado este examen de manera individual, sin apoyo externo no autorizado.
+            </div>
+
+            <div class="report-footer">
+                <p>Este reporte debe ser subido a Moodle en formato PDF.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 border border-gray-300">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">¿Confirmar entrega?</h3>
+            <p class="text-gray-600 mb-6 text-sm">Una vez entregado, no podrás modificar tus respuestas. Este es tu único intento.</p>
+            <div class="flex gap-3">
+                <button id="cancel-submit" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg border border-gray-300">Cancelar</button>
+                <button id="confirm-submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg border border-indigo-700">Sí, entregar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         JAVASCRIPT
+         ============================================================ -->
+    <script>
+    (function() {
+        'use strict';
+
+        const CONFIG = {
+            timeLimit: 60 * 60,
+            maxExits: 0,
+            correctPartA: {
+                q1: 'b', q2: 'd', q3: 'b', q4: 'b', q5: 'b', q6: 'c',
+                q7: 'c', q8: 'b', q9: 'c', q10: 'b', q11: 'b', q12: 'c'
+            },
+            correctPartB: {
+                '13-1': 'autor', '13-2': 'editor', '13-3': 'revisor', '13-4': 'lector',
+                '14-1': 'prestigio', '14-2': 'geografico', '14-3': 'modelo', '14-4': 'positivo', '14-5': 'etnico',
+                '15-1': 'resumen', '15-2': 'contexto', '15-3': 'critica', '15-4': 'conclusion', '15-5': 'confidencial'
+            },
+            questionTexts: {
+                q1: 'Al elegir la revista, ¿qué se debe considerar primero?',
+                q2: '¿Qué NO se debe hacer al buscar opciones de revistas?',
+                q3: 'Respecto a revistas sospechosas, ¿cuál es correcta?',
+                q4: '¿Cuál es una señal de alerta de revista depredadora?',
+                q5: 'En el primer filtro editorial, un manuscrito:',
+                q6: '¿Desde cuándo aplica la confidencialidad?',
+                q7: 'Si el revisor tiene conflicto de interés, debe:',
+                q8: 'Ante datos incompletos, ¿qué evaluar primero?',
+                q9: 'Si sospecha manipulación de imágenes, debe:',
+                q10: 'Si sospecha envío simultáneo, debe:',
+                q11: 'Un problema de diseño se clasifica como:',
+                q12: 'Sobre el uso de IA, la responsabilidad recae en:'
+            },
+            answerTexts: {
+                q1:  { a: 'El factor de impacto', b: 'Su alcance (scope) y público objetivo', c: 'La rapidez', d: 'El costo del APC' },
+                q2:  { a: 'Verificar indexación', b: 'Consultar colegas', c: 'Revisar alcance', d: 'Aceptar la primera invitación por correo' },
+                q3:  { a: 'Todas con APC son depredadoras', b: 'Cobrar APC con transparencia no la hace depredadora', c: 'Todas OA son depredadoras', d: 'No existen depredadoras' },
+                q4:  { a: 'Comité editorial reconocido', b: 'Publicación garantizada en pocos días', c: 'Revisión documentada', d: 'Indexación reconocida' },
+                q5:  { a: 'Siempre pasa a revisión', b: 'Puede ser rechazado antes de revisión externa', c: 'Nunca se rechaza', d: 'Solo se acepta' },
+                q6:  { a: 'Al publicarse', b: 'Al terminar revisión', c: 'Desde la invitación a revisar', d: 'Durante la lectura' },
+                q7:  { a: 'Revisarlo igual', b: 'Rechazarlo automáticamente', c: 'Informar al editor y dejar que decida', d: 'Ignorar' },
+                q8:  { a: 'Si son novedosos', b: 'Si es esencial publicar o solo fortalecer', c: 'Si el autor tiene prestigio', d: 'Si la revista acepta' },
+                q9:  { a: 'Ignorarlo', b: 'Contactar autores directamente', c: 'Contactar al editor y solicitar nuevas imágenes', d: 'Publicarlo' },
+                q10: { a: 'No hacer nada', b: 'Informar a ambos editores', c: 'Contactar al autor', d: 'Publicarlo' },
+                q11: { a: 'Punto menor', b: 'Punto mayor por deficiencia importante', c: 'Comentario confidencial', d: 'No se reporta' },
+                q12: { a: 'El editor', b: 'El revisor', c: 'Los autores del manuscrito', d: 'La revista' }
+            },
+            justifications: {
+                q1:  'El scope y público objetivo son los criterios primordiales para elegir la revista adecuada.',
+                q2:  'Aceptar la primera invitación con promesa de publicación rápida es la señal más clara de depredación.',
+                q3:  'Cobrar APC con transparencia es legítimo; el problema es la falta de transparencia y proceso editorial.',
+                q4:  'Garantizar publicación en pocos días es la señal de alerta más clásica de revistas depredadoras.',
+                q5:  'El editor puede hacer desk-reject (rechazo sin revisión externa) por falta de pertinencia o calidad.',
+                q6:  'La confidencialidad comienza desde el momento en que el revisor recibe la invitación.',
+                q7:  'El revisor debe declarar el conflicto al editor; el editor decide si lo reemplaza o no.',
+                q8:  'El revisor debe juzgar si los datos faltantes son esenciales para la validez o solo mejorarían el trabajo.',
+                q9:  'La sospecha se reporta al editor; no se contacta directamente al autor.',
+                q10: 'El envío simultáneo es una falta ética grave; debe informarse a ambos editores.',
+                q11: 'Un problema de diseño es una deficiencia estructural, por lo que es un punto mayor.',
+                q12: 'La responsabilidad ética y legal del contenido siempre recae en los autores.'
+            },
+            partBTexts: {
+                '13-1': { text: 'Investiga y redacta el manuscrito', correct: 'Autor' },
+                '13-2': { text: 'Garantiza la calidad y pertinencia de lo publicado', correct: 'Editor' },
+                '13-3': { text: 'Representa a la comunidad en la revisión por pares', correct: 'Revisor' },
+                '13-4': { text: 'Es el público objetivo y continúa la discusión', correct: 'Lector' },
+                '14-1': { text: 'Se acepta con facilidad por venir de universidad reconocida', correct: 'Sesgo de prestigio' },
+                '14-2': { text: 'El país o institución influye en la percepción de calidad', correct: 'Sesgo geográfico' },
+                '14-3': { text: 'Se rechaza porque no es el enfoque del revisor', correct: 'Sesgo de modelo' },
+                '14-4': { text: 'Se evalúa favorablemente sin suficiente rigor', correct: 'Sesgo positivo' },
+                '14-5': { text: 'El género u origen del autor pesan en la evaluación', correct: 'Sesgo étnico y de género' },
+                '15-1': { text: 'Impresión general y contenido central', correct: 'Resumen' },
+                '15-2': { text: 'Problema o área del manuscrito', correct: 'Contexto' },
+                '15-3': { text: 'Fortalezas, debilidades y puntos numerados', correct: 'Crítica / evaluación' },
+                '15-4': { text: 'Cierre que conecta con la recomendación', correct: 'Conclusión' },
+                '15-5': { text: 'Posible mala conducta o conflictos de interés', correct: 'Comentarios confidenciales al editor' }
+            },
+            storageKeys: {
+                progress: 'upds_pub_exam_progress_v13',
+                result: 'upds_pub_exam_result_v13'
+            }
+        };
+
+        const state = {
+            currentScreen: 'start',
+            isActive: false,
+            isSubmitted: false,
+            isAnnulled: false,
+            exitCount: 0,
+            timeRemaining: CONFIG.timeLimit,
+            timerInterval: null,
+            startTime: null,
+            answers: {},
+            score: { correct: 0, total: 15, percentage: 0, partA: 0, partB: 0 },
+            studentName: '',
+            studentEmail: '',
+            startDateTime: '',
+            endTime: null,
+            reason: ''
+        };
+
+        const $ = (id) => document.getElementById(id);
+        const dom = {
+            screens: {
+                start: $('screen-start'),
+                exam: $('screen-exam'),
+                annulled: $('screen-annulled'),
+                result: $('screen-result')
+            },
+            studentName: $('student-name'),
+            studentEmail: $('student-email'),
+            studentDatetime: $('student-datetime'),
+            honestyCheck: $('honesty-check'),
+            startBtn: $('start-btn'),
+            timer: $('timer'),
+            progressBar: $('progress-bar'),
+            answeredCount: $('answered-count'),
+            exitCount: $('exit-count'),
+            examForm: $('exam-form'),
+            submitBtn: $('submit-btn'),
+            confirmModal: $('confirm-modal'),
+            cancelSubmit: $('cancel-submit'),
+            confirmSubmit: $('confirm-submit'),
+            saveNotification: $('save-notification'),
+            annulledRing: $('annulled-ring'),
+            annulledScore: $('annulled-score'),
+            annulledLevel: $('annulled-level'),
+            annulledPercentage: $('annulled-percentage'),
+            annulledName: $('annulled-name'),
+            annulledLevelSmall: $('annulled-level-small'),
+            annulledSections: $('annulled-sections'),
+            annulledDownloadPdf: $('annulled-download-pdf'),
+            resultRing: $('result-ring'),
+            resultScore: $('result-score'),
+            resultTotal: $('result-total'),
+            resultLevel: $('result-level'),
+            resultPercentage: $('result-percentage'),
+            resultName: $('result-name'),
+            resultLevelSmall: $('result-level-small'),
+            resultSections: $('result-sections'),
+            resultDownloadPdf: $('result-download-pdf'),
+            pdfContent: $('pdf-content')
+        };
+
+        function showScreen(name) {
+            Object.values(dom.screens).forEach(s => s.classList.remove('active'));
+            dom.screens[name].classList.add('active');
+            state.currentScreen = name;
+            window.scrollTo(0, 0);
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function formatDuration(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins} min ${secs} seg`;
+        }
+
+        function formatDateTime(date) {
+            return date.toLocaleString('es-BO', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+            }).replace(',', '');
+        }
+
+        const TOTAL_ITEMS = 26;
+
+        function updateProgress() {
+            const answeredA = Object.keys(state.answers).filter(k => k.startsWith('q')).length;
+            const answeredB = Object.keys(state.answers).filter(k => k.includes('-')).length;
+            const total = answeredA + answeredB;
+            dom.progressBar.style.width = `${(total / TOTAL_ITEMS) * 100}%`;
+            dom.answeredCount.textContent = `${total} / ${TOTAL_ITEMS}`;
+        }
+
+        let saveTimeout = null;
+        function showSaveNotification() {
+            dom.saveNotification.classList.add('show');
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => dom.saveNotification.classList.remove('show'), 1200);
+        }
+
+        function saveProgress() {
+            if (state.isSubmitted) return;
+            try {
+                localStorage.setItem(CONFIG.storageKeys.progress, JSON.stringify({
+                    answers: state.answers,
+                    studentName: state.studentName,
+                    studentEmail: state.studentEmail,
+                    startDateTime: state.startDateTime,
+                    timeRemaining: state.timeRemaining,
+                    startTime: state.startTime,
+                    exitCount: state.exitCount
+                }));
+                showSaveNotification();
+            } catch (e) {}
+        }
+
+        function clearProgress() {
+            try { localStorage.removeItem(CONFIG.storageKeys.progress); } catch (e) {}
+        }
+
+        function saveResult() {
+            try {
+                localStorage.setItem(CONFIG.storageKeys.result, JSON.stringify({
+                    timestamp: new Date().toISOString(),
+                    name: state.studentName,
+                    email: state.studentEmail,
+                    correct: state.score.correct,
+                    total: state.score.total,
+                    percentage: state.score.percentage,
+                    partA: state.score.partA,
+                    partB: state.score.partB,
+                    answers: state.answers,
+                    duration: CONFIG.timeLimit - state.timeRemaining,
+                    exitCount: state.exitCount,
+                    isAnnulled: state.isAnnulled,
+                    reason: state.reason,
+                    startDateTime: state.startDateTime
+                }));
+            } catch (e) {}
+        }
+
+        function getPreviousResult() {
+            try {
+                const raw = localStorage.getItem(CONFIG.storageKeys.result);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) { return null; }
+        }
+
+        function validateStartForm() {
+            const name = dom.studentName.value.trim();
+            const email = dom.studentEmail.value.trim();
+            const checked = dom.honestyCheck.checked;
+            const valid = name && email.includes('@') && checked;
+
+            dom.startBtn.disabled = !valid;
+            if (valid) {
+                dom.startBtn.className = 'btn-start w-full text-white font-bold py-4 px-6 rounded-2xl text-lg';
+                dom.startBtn.textContent = 'Comenzar Examen';
+            } else {
+                dom.startBtn.className = 'btn-start w-full text-gray-500 font-bold py-4 px-6 rounded-2xl text-lg';
+                dom.startBtn.textContent = 'Completar todos los campos para continuar';
+            }
+        }
+
+        function startTimer() {
+            state.timerInterval = setInterval(() => {
+                if (!state.isActive || state.isSubmitted) return;
+                state.timeRemaining--;
+                dom.timer.textContent = formatTime(state.timeRemaining);
+
+                if (state.timeRemaining % 30 === 0) saveProgress();
+
+                if (state.timeRemaining <= 300) {
+                    dom.timer.classList.remove('text-indigo-600');
+                    dom.timer.classList.add('text-red-600', 'animate-pulse');
+                }
+
+                if (state.timeRemaining <= 0) {
+                    clearInterval(state.timerInterval);
+                    closeExam('⏰ Tiempo agotado. El examen se ha cerrado automáticamente.');
+                }
+            }, 1000);
+        }
+
+        function calculateScore() {
+            let correctA = 0;
+            for (const [q, a] of Object.entries(CONFIG.correctPartA)) {
+                if (state.answers[q] === a) correctA++;
+            }
+
+            const pairsIn13 = 4, pairsIn14 = 5, pairsIn15 = 5;
+            let partBScore = 0;
+            let c13 = 0;
+            for (let i = 1; i <= 4; i++) if (state.answers[`13-${i}`] === CONFIG.correctPartB[`13-${i}`]) c13++;
+            partBScore += c13 / pairsIn13;
+            let c14 = 0;
+            for (let i = 1; i <= 5; i++) if (state.answers[`14-${i}`] === CONFIG.correctPartB[`14-${i}`]) c14++;
+            partBScore += c14 / pairsIn14;
+            let c15 = 0;
+            for (let i = 1; i <= 5; i++) if (state.answers[`15-${i}`] === CONFIG.correctPartB[`15-${i}`]) c15++;
+            partBScore += c15 / pairsIn15;
+
+            const totalCorrect = correctA + partBScore;
+            state.score = {
+                correct: Math.round(totalCorrect * 100) / 100,
+                total: 15,
+                percentage: Math.round((totalCorrect / 15) * 100),
+                partA: correctA,
+                partB: Math.round(partBScore * 100) / 100
+            };
+            return state.score;
+        }
+
+        function getLevel(percentage) {
+            if (percentage >= 80) return 'EXCELENTE';
+            if (percentage >= 60) return 'APROBADO';
+            if (percentage >= 40) return 'REGULAR';
+            return 'REPROBADO';
+        }
+
+        function getLevelSpanish(level) {
+            const map = {
+                'EXCELENTE': 'Excelente',
+                'APROBADO': 'Aprobado',
+                'REGULAR': 'Regular',
+                'REPROBADO': 'Reprobado'
+            };
+            return map[level] || level;
+        }
+
+        function closeExam(reason) {
+            if (state.isSubmitted) return;
+            state.isActive = false;
+            state.isSubmitted = true;
+            state.isAnnulled = true;
+            state.reason = reason || 'Examen cerrado por salida de pestaña';
+            state.endTime = Date.now();
+
+            if (state.timerInterval) clearInterval(state.timerInterval);
+
+            const score = calculateScore();
+
+            dom.annulledScore.textContent = score.correct.toFixed(1);
+            dom.annulledPercentage.textContent = `${score.percentage}%`;
+            dom.annulledLevel.textContent = getLevel(score.percentage);
+            dom.annulledName.textContent = state.studentName || '-';
+
+            const levelColors = {
+                'EXCELENTE': 'text-green-600', 'APROBADO': 'text-green-600',
+                'REGULAR': 'text-yellow-600', 'REPROBADO': 'text-red-600'
+            };
+            dom.annulledLevel.className = `text-center text-2xl font-bold mb-1 ${levelColors[getLevel(score.percentage)]}`;
+            dom.annulledLevelSmall.className = `text-sm font-semibold ${levelColors[getLevel(score.percentage)]}`;
+            dom.annulledLevelSmall.textContent = getLevelSpanish(getLevel(score.percentage));
+
+            const circumference = 2 * Math.PI * 70;
+            const offset = circumference - (score.percentage / 100) * circumference;
+            const ringColor = score.percentage >= 60 ? '#16a34a' : (score.percentage >= 40 ? '#eab308' : '#dc2626');
+            dom.annulledRing.setAttribute('stroke', ringColor);
+            setTimeout(() => { dom.annulledRing.style.strokeDashoffset = offset; }, 100);
+
+            dom.annulledSections.innerHTML = `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300">
+                    <span class="text-sm font-medium text-gray-700">Parte A · Opción múltiple (12 pts)</span>
+                    <span class="text-sm font-bold text-gray-800">${score.partA}/12</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300">
+                    <span class="text-sm font-medium text-gray-700">Parte B · Emparejamiento (3 pts)</span>
+                    <span class="text-sm font-bold text-gray-800">${score.partB.toFixed(2)}/3</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <span class="text-sm font-bold text-indigo-800">TOTAL</span>
+                    <span class="text-sm font-bold text-indigo-800">${score.correct.toFixed(2)}/15</span>
+                </div>
+            `;
+
+            showScreen('annulled');
+            saveResult();
+            clearProgress();
+        }
+
+        function showConfirmModal() {
+            dom.confirmModal.classList.remove('hidden');
+        }
+
+        function submitExam() {
+            dom.confirmModal.classList.add('hidden');
+
+            state.isActive = false;
+            state.isSubmitted = true;
+            state.isAnnulled = false;
+            state.reason = 'Entrega voluntaria';
+            state.endTime = Date.now();
+
+            if (state.timerInterval) clearInterval(state.timerInterval);
+
+            const score = calculateScore();
+            const level = getLevel(score.percentage);
+
+            dom.resultScore.textContent = score.correct.toFixed(1);
+            dom.resultTotal.textContent = score.total;
+            dom.resultPercentage.textContent = `${score.percentage}%`;
+            dom.resultLevel.textContent = level;
+            dom.resultName.textContent = state.studentName;
+
+            const levelColors = {
+                'EXCELENTE': 'text-green-600', 'APROBADO': 'text-green-600',
+                'REGULAR': 'text-yellow-600', 'REPROBADO': 'text-red-600'
+            };
+            dom.resultLevel.className = `text-center text-2xl font-bold mb-1 ${levelColors[level]}`;
+            dom.resultLevelSmall.className = `text-sm font-semibold ${levelColors[level]}`;
+            dom.resultLevelSmall.textContent = getLevelSpanish(level);
+
+            const circumference = 2 * Math.PI * 70;
+            const offset = circumference - (score.percentage / 100) * circumference;
+            const ringColor = score.percentage >= 60 ? '#16a34a' : (score.percentage >= 40 ? '#eab308' : '#dc2626');
+            dom.resultRing.setAttribute('stroke', ringColor);
+            setTimeout(() => { dom.resultRing.style.strokeDashoffset = offset; }, 100);
+
+            dom.resultSections.innerHTML = `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300">
+                    <span class="text-sm font-medium text-gray-700">Parte A · Opción múltiple (12 pts)</span>
+                    <span class="text-sm font-bold text-gray-800">${score.partA}/12</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300">
+                    <span class="text-sm font-medium text-gray-700">Parte B · Emparejamiento (3 pts)</span>
+                    <span class="text-sm font-bold text-gray-800">${score.partB.toFixed(2)}/3</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <span class="text-sm font-bold text-indigo-800">TOTAL</span>
+                    <span class="text-sm font-bold text-indigo-800">${score.correct.toFixed(2)}/15</span>
+                </div>
+            `;
+
+            showScreen('result');
+            saveResult();
+            clearProgress();
+        }
+
+        function handleVisibilityChange() {
+            if (!state.isActive || state.isSubmitted) return;
+            if (document.hidden) {
+                state.exitCount++;
+                dom.exitCount.textContent = state.exitCount;
+                saveProgress();
+                closeExam('Saliste de la ventana del examen. El examen se ha cerrado automáticamente con la nota obtenida.');
+            }
+        }
+
+        function handleBeforeUnload(e) {
+            if (!state.isActive || state.isSubmitted) return;
+            saveProgress();
+            e.preventDefault();
+            e.returnValue = '';
+            return e.returnValue;
+        }
+
+        function handleAnswerChange(e) {
+            if (state.isSubmitted) { e.preventDefault(); e.target.checked = false; return; }
+            if (e.target.name) {
+                state.answers[e.target.name] = e.target.value;
+            } else if (e.target.dataset.match) {
+                state.answers[e.target.dataset.match] = e.target.value;
+            }
+            updateProgress();
+            saveProgress();
+        }
+
+        function buildPdfReport() {
+            const score = state.score;
+            const duration = CONFIG.timeLimit - state.timeRemaining;
+            const now = new Date();
+
+            $('pdf-score').textContent = `${score.correct.toFixed(2)}/${score.total}`;
+            $('pdf-percentage').textContent = state.isAnnulled
+                ? `${score.percentage}% (cerrado automáticamente)`
+                : `${score.percentage}% de acierto`;
+            $('pdf-student-name').textContent = state.studentName || '-';
+            $('pdf-student-email').textContent = state.studentEmail || '-';
+            $('pdf-date').textContent = now.toLocaleString('es-BO', {
+                year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+            $('pdf-duration').textContent = formatDuration(duration);
+            $('pdf-status').textContent = state.isAnnulled ? 'CERRADO AUTOMÁTICAMENTE' : 'Completado';
+            $('pdf-exits').textContent = state.exitCount;
+
+            const tbodyA = $('pdf-partA-table');
+            tbodyA.innerHTML = '';
+            let idx = 1;
+            for (const [key, correctAnswer] of Object.entries(CONFIG.correctPartA)) {
+                const studentAnswer = state.answers[key];
+                const questionText = CONFIG.questionTexts[key];
+                const studentAnswerText = studentAnswer
+                    ? `${studentAnswer.toUpperCase()}) ${CONFIG.answerTexts[key][studentAnswer]}`
+                    : 'Sin responder';
+                const correctAnswerText = `${correctAnswer.toUpperCase()}) ${CONFIG.answerTexts[key][correctAnswer]}`;
+
+                let resultClass;
+                if (state.isAnnulled) resultClass = 'answer-incorrect';
+                else if (!studentAnswer) resultClass = 'answer-empty';
+                else if (studentAnswer === correctAnswer) resultClass = 'answer-correct';
+                else resultClass = 'answer-incorrect';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${idx}</strong></td>
+                    <td>${questionText}</td>
+                    <td class="${resultClass}">${studentAnswerText}</td>
+                    <td class="answer-correct">${correctAnswerText}</td>
+                    <td style="font-size:9px;color:#4b5563;">${CONFIG.justifications[key]}</td>
+                `;
+                tbodyA.appendChild(row);
+                idx++;
+            }
+
+            const tbodyB = $('pdf-partB-table');
+            tbodyB.innerHTML = '';
+            const groups = [
+                { prefix: '13', idx: 13, count: 4 },
+                { prefix: '14', idx: 14, count: 5 },
+                { prefix: '15', idx: 15, count: 5 }
+            ];
+            for (const g of groups) {
+                for (let i = 1; i <= g.count; i++) {
+                    const key = `${g.prefix}-${i}`;
+                    const studentAnswer = state.answers[key];
+                    const item = CONFIG.partBTexts[key];
+                    const studentAnswerText = studentAnswer
+                        ? studentAnswer.charAt(0).toUpperCase() + studentAnswer.slice(1)
+                        : 'Sin responder';
+
+                    let resultClass;
+                    if (state.isAnnulled) resultClass = 'answer-incorrect';
+                    else if (!studentAnswer) resultClass = 'answer-empty';
+                    else if (studentAnswer === CONFIG.correctPartB[key]) resultClass = 'answer-correct';
+                    else resultClass = 'answer-incorrect';
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><strong>${g.idx}.${i}</strong></td>
+                        <td>${item.text}</td>
+                        <td class="${resultClass}">${studentAnswerText}</td>
+                        <td class="answer-correct">${item.correct}</td>
+                    `;
+                    tbodyB.appendChild(row);
+                }
+                const sep = document.createElement('tr');
+                sep.innerHTML = `<td colspan="4" style="background:#e5e7eb;height:3px;padding:0;"></td>`;
+                tbodyB.appendChild(sep);
+            }
+        }
+
+        function triggerPrint() {
+            buildPdfReport();
+            dom.pdfContent.style.display = 'block';
+
+            const element = dom.pdfContent;
+            const safeName = (state.studentName || 'Estudiante').replace(/\s+/g, '_');
+            const opt = {
+                margin:       [10, 10, 10, 10],
+                filename:     `Reporte_Examen_${safeName}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0, backgroundColor: '#ffffff' },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                dom.pdfContent.style.display = 'none';
+            }).catch((err) => {
+                console.error('Error al generar PDF:', err);
+                dom.pdfContent.style.display = 'none';
+                alert('Hubo un problema al generar el PDF. Intenta de nuevo.');
+            });
+        }
+
+        function init() {
+            const now = new Date();
+            state.startDateTime = formatDateTime(now);
+            dom.studentDatetime.value = state.startDateTime;
+
+            const previous = getPreviousResult();
+            if (previous) {
+                state.studentName = previous.name || '';
+                state.studentEmail = previous.email || '';
+                state.answers = previous.answers || {};
+                state.score = {
+                    correct: previous.correct || 0,
+                    total: previous.total || 15,
+                    percentage: previous.percentage || 0,
+                    partA: previous.partA || 0,
+                    partB: previous.partB || 0
+                };
+                state.exitCount = previous.exitCount || 0;
+                state.isSubmitted = true;
+                state.isActive = false;
+                state.isAnnulled = previous.isAnnulled || false;
+                state.reason = previous.reason || '';
+                state.timeRemaining = CONFIG.timeLimit - (previous.duration || 0);
+
+                if (state.isAnnulled) {
+                    dom.annulledScore.textContent = state.score.correct.toFixed(1);
+                    dom.annulledPercentage.textContent = `${state.score.percentage}%`;
+                    dom.annulledLevel.textContent = getLevel(state.score.percentage);
+                    dom.annulledName.textContent = state.studentName;
+
+                    const circumference = 2 * Math.PI * 70;
+                    const offset = circumference - (state.score.percentage / 100) * circumference;
+                    const ringColor = state.score.percentage >= 60 ? '#16a34a' : (state.score.percentage >= 40 ? '#eab308' : '#dc2626');
+                    dom.annulledRing.setAttribute('stroke', ringColor);
+                    dom.annulledRing.style.strokeDashoffset = offset;
+
+                    dom.annulledSections.innerHTML = `
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300">
+                            <span class="text-sm font-medium text-gray-700">Parte A · Opción múltiple (12 pts)</span>
+                            <span class="text-sm font-bold text-gray-800">${state.score.partA}/12</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300">
+                            <span class="text-sm font-medium text-gray-700">Parte B · Emparejamiento (3 pts)</span>
+                            <span class="text-sm font-bold text-gray-800">${state.score.partB.toFixed(2)}/3</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                            <span class="text-sm font-bold text-indigo-800">TOTAL</span>
+                            <span class="text-sm font-bold text-indigo-800">${state.score.correct.toFixed(2)}/15</span>
+                        </div>
+                    `;
+                    showScreen('annulled');
+                } else {
+                    const level = getLevel(state.score.percentage);
+                    dom.resultScore.textContent = state.score.correct.toFixed(1);
+                    dom.resultTotal.textContent = state.score.total;
+                    dom.resultPercentage.textContent = `${state.score.percentage}%`;
+                    dom.resultLevel.textContent = level;
+                    dom.resultName.textContent = state.studentName;
+
+                    const circumference = 2 * Math.PI * 70;
+                    const offset = circumference - (state.score.percentage / 100) * circumference;
+                    const ringColor = state.score.percentage >= 60 ? '#16a34a' : (state.score.percentage >= 40 ? '#eab308' : '#dc2626');
+                    dom.resultRing.setAttribute('stroke', ringColor);
+                    dom.resultRing.style.strokeDashoffset = offset;
+
+                    dom.resultSections.innerHTML = `
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300">
+                            <span class="text-sm font-medium text-gray-700">Parte A · Opción múltiple (12 pts)</span>
+                            <span class="text-sm font-bold text-gray-800">${state.score.partA}/12</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-300">
+                            <span class="text-sm font-medium text-gray-700">Parte B · Emparejamiento (3 pts)</span>
+                            <span class="text-sm font-bold text-gray-800">${state.score.partB.toFixed(2)}/3</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                            <span class="text-sm font-bold text-indigo-800">TOTAL</span>
+                            <span class="text-sm font-bold text-indigo-800">${state.score.correct.toFixed(2)}/15</span>
+                        </div>
+                    `;
+                    showScreen('result');
+                }
+                return;
+            }
+
+            dom.studentName.addEventListener('input', validateStartForm);
+            dom.studentEmail.addEventListener('input', validateStartForm);
+            dom.honestyCheck.addEventListener('change', validateStartForm);
+
+            dom.startBtn.addEventListener('click', () => {
+                if (dom.startBtn.disabled) return;
+                state.studentName = dom.studentName.value.trim();
+                state.studentEmail = dom.studentEmail.value.trim();
+                state.startTime = Date.now();
+                state.isActive = true;
+                state.exitCount = 0;
+
+                saveProgress();
+                showScreen('exam');
+                startTimer();
+                updateProgress();
+
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+                window.addEventListener('beforeunload', handleBeforeUnload);
+                dom.examForm.addEventListener('change', handleAnswerChange);
+                dom.submitBtn.addEventListener('click', showConfirmModal);
+            });
+
+            dom.cancelSubmit.addEventListener('click', () => dom.confirmModal.classList.add('hidden'));
+            dom.confirmSubmit.addEventListener('click', submitExam);
+            dom.annulledDownloadPdf.addEventListener('click', triggerPrint);
+            dom.resultDownloadPdf.addEventListener('click', triggerPrint);
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+
+    })();
+    </script>
+
+</body>
+</html>
